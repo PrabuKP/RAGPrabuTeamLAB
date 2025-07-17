@@ -22,7 +22,7 @@ COPY . .
 
 # 6. (Expose port nanti di tahap berikutnya, misal 8087)
 #    tapi di tahap persiapan kita tulis sebagai placeholder:
-EXPOSE 8087
+EXPOSE 8081
 
 # 7. Default command untuk menjalankan FastAPI
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8087"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8081"]
