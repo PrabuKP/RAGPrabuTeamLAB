@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+llama-index
+elasticsearch
+python-docx
+PyPDF2
+python-pptx
+aiofiles
+pydantic
+typing-extensions
