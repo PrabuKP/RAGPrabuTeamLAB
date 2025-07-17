@@ -1,10 +1,10 @@
-# Base image
+# 1. Base image dengan Python 3.10
 FROM python:3.10-slim
 
-# Set working directory
+# 2. Set working directory
 WORKDIR /app
 
-# Install system deps untuk parser (jika perlu)
+# 3. Install system dependencies (untuk modul parser)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       build-essential \
@@ -13,15 +13,16 @@ RUN apt-get update && \
       libzip-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy dan install dependencies Python
+# 4. Copy daftar requirements & install via pip
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy seluruh kode proyek
+# 5. Copy seluruh source code (nanti Anda tambahkan server.py, modul, dsb.)
 COPY . .
 
-# Expose port FastAPI default
+# 6. (Expose port nanti di tahap berikutnya, misal 8087)
+#    tapi di tahap persiapan kita tulis sebagai placeholder:
 EXPOSE 8087
 
-# Command untuk menjalankan server
+# 7. Default command untuk menjalankan FastAPI
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8087"]
