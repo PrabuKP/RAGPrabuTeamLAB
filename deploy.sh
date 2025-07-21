@@ -1,73 +1,67 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# 1. Buat network 'ragnet' jika belum ada
-if ! docker network ls --format '{{.Name}}' | grep -q '^ragnet$'; then
-  echo "🌐 Membuat Docker network 'ragnet'..."
-  docker network create ragnet
+API_IMAGE="ragprabu-backend:latest"
+API_NAME="ragprabu-api"
+ES_NAME="es"
+NETWORK="ragnet"
+HOST_API_PORT=8081
+CTR_API_PORT=8081
+
+# 1. Buat network ragnet
+if ! docker network ls --format '{{.Name}}' | grep -q "^${NETWORK}\$"; then
+  echo "🌐 Membuat Docker network '${NETWORK}'..."
+  docker network create "${NETWORK}"
 fi
 
-# 2. Restart Elasticsearch container
-echo "🛑 Stop & remove container 'es' jika ada..."
-if docker ps -a --format '{{.Names}}' | grep -q '^es$'; then
-  docker stop es
-  docker rm es
+# 2. Restart Elasticsearch
+echo "🛑 Stop & remove container '${ES_NAME}' jika ada..."
+if docker ps -a --format '{{.Names}}' | grep -q "^${ES_NAME}\$"; then
+  docker stop "${ES_NAME}" && docker rm "${ES_NAME}"
 fi
-
-echo "🚀 Menjalankan Elasticsearch di network 'ragnet'..."
-docker run -d --name es \
-  --network ragnet \
+echo "🚀 Menjalankan Elasticsearch di network '${NETWORK}'..."
+docker run -d --name "${ES_NAME}" \
+  --network "${NETWORK}" \
   -p 9200:9200 \
   -e "discovery.type=single-node" \
   -e "xpack.security.enabled=false" \
   docker.elastic.co/elasticsearch/elasticsearch:8.6.2
 
 # 3. Build ulang API image
-echo "🔨 Building Docker image ragprabu-backend:latest..."
-docker build --no-cache -t ragprabu-backend:latest .
+echo "🔨 Building Docker image ${API_IMAGE}..."
+docker build --no-cache -t "${API_IMAGE}" .
 
 # 4. Restart API container
-echo "🛑 Stop & remove container 'ragprabu-api' jika ada..."
-if docker ps -a --format '{{.Names}}' | grep -q '^ragprabu-api$'; then
-  docker stop ragprabu-api
-  docker rm ragprabu-api
+echo "🛑 Stop & remove container '${API_NAME}' jika ada..."
+if docker ps -a --format '{{.Names}}' | grep -q "^${API_NAME}\$"; then
+  docker stop "${API_NAME}" && docker rm "${API_NAME}"
 fi
 
-echo "🚀 Menjalankan API container di network 'ragnet' (port 8081)..."
-docker run -d --name ragprabu-api \
-  --network ragnet \
-  -p 8081:8081 \
-  -e ES_HOST=http://es:9200 \
-  ragprabu-backend:latest
+echo "🚀 Menjalankan API container di network '${NETWORK}' (host ${HOST_API_PORT} → container ${CTR_API_PORT})..."
+docker run -d --name "${API_NAME}" \
+  --network "${NETWORK}" \
+  -p ${HOST_API_PORT}:${CTR_API_PORT} \
+  -e ES_HOST="http://${ES_NAME}:9200" \
+  "${API_IMAGE}"
 
-# 5. Cek status Elasticsearch via network ragnet
+# 5. Tunggu API siap
 echo
-echo "🔍 Mengecek Elasticsearch (http://es:9200) via network 'ragnet'..."
-ES_STATUS=$(docker run --rm --network ragnet curlimages/curl:7.85.0 \
-  -s -o /dev/null -w "%{http_code}" http://es:9200)
+echo "⏳ Menunggu API siap di http://localhost:${HOST_API_PORT}/health..."
+for i in {1..10}; do
+  if curl -s http://localhost:${HOST_API_PORT}/health >/dev/null; then
+    echo "✅ API OK!"
+    break
+  fi
+  echo "   - retry $i..."
+  sleep 1
+done
 
-if [ "$ES_STATUS" = "200" ]; then
-  ES_BODY=$(docker run --rm --network ragnet curlimages/curl:7.85.0 -s http://es:9200)
-  echo "✅ Elasticsearch OK (HTTP 200)"
-  echo "$ES_BODY"
-else
-  echo "❌ Elasticsearch error (HTTP $ES_STATUS)"
-fi
-
-# 6. Cek status API
+# 6. Cek final
 echo
-echo "🔍 Mengecek API (http://localhost:8081/health)..."
-API_RESULT=$(curl -s -w "\nHTTP_CODE:%{http_code}" http://localhost:8081/health)
-API_STATUS=$(echo "$API_RESULT" | awk -F'HTTP_CODE:' '{print $2}')
-API_BODY=$(echo "$API_RESULT" | sed -e 's/HTTP_CODE:.*//')
-
-if [ "$API_STATUS" = "200" ]; then
-  echo "✅ API OK (HTTP 200) — Response: $API_BODY"
-else
-  echo "❌ API error (HTTP $API_STATUS)"
-fi
+echo "🔍 Final check:"
+curl -s http://localhost:${HOST_API_PORT}/health && echo
 
 echo
 echo "✅ Deployment complete!"
 echo "   • Elasticsearch: http://localhost:9200"
-echo "   • API health:   http://localhost:8081/health"
+echo "   • API health:   http://localhost:${HOST_API_PORT}/health"
