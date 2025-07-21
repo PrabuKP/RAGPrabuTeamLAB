@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RAGPrabu Demo UI</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    section { margin-bottom: 2em; }
+    label { display: block; margin-bottom: 0.5em; }
+    select, input[type=text], input[type=number] { width: 300px; padding: 0.3em; }
+    button { padding: 0.5em 1em; }
+    pre { background: #f4f4f4; padding: 1em; }
+  </style>
+</head>
+<body>
+  <h1>RAGPrabu Demo UI</h1>
+
+  <!-- UPLOAD FROM DATA FOLDER -->
+  <section>
+    <h2>1. Upload from "Data/" Folder</h2>
+    <label for="fileSelect">Choose file from folder Data/:</label>
+    <select id="fileSelect"></select>
+    <button id="uploadBtn">Upload</button>
+    <div id="uploadResult"></div>
+  </section>
+
+  <!-- RETRIEVE -->
+  <section>
+    <h2>2. Retrieve</h2>
+    <label for="docSelect">Choose document_id:</label>
+    <select id="docSelect"></select>
+
+    <label for="questionInput">question:</label>
+    <input type="text" id="questionInput" placeholder="Masukkan pertanyaan" />
+
+    <label for="topkInput">Top-K:</label>
+    <input type="number" id="topkInput" value="3" min="1" />
+
+    <button id="retrieveBtn">Retrieve</button>
+    <div id="retrieveResult"></div>
+  </section>
+
+  <script>
+    const BASE = window.location.origin;
+
+    // Ambil daftar file di Data/
+    async function loadFiles() {
+      let res = await fetch(`${BASE}/data-files`);
+      let js = await res.json();
+      const sel = document.getElementById('fileSelect');
+      js.files.forEach(f => {
+        const o = document.createElement('option');
+        o.value = f; o.textContent = f;
+        sel.appendChild(o);
+      });
+    }
+
+    // Upload dari Data/ via endpoint
+    async function uploadFromData() {
+      const file = document.getElementById('fileSelect').value;
+      const res = await fetch(`${BASE}/upload-from-data?filename=${encodeURIComponent(file)}`, {
+        method: 'POST'
+      });
+      const js = await res.json();
+      document.getElementById('uploadResult').innerHTML =
+        `<pre>${JSON.stringify(js,null,2)}</pre>`;
+
+      // tambahkan doc_id ke retrieve dropdown
+      const docSel = document.getElementById('docSelect');
+      const opt = document.createElement('option');
+      opt.value = js.document_id;
+      opt.textContent = `${file} → ${js.document_id}`;
+      docSel.appendChild(opt);
+      docSel.value = js.document_id;
+    }
+
+    // Retrieve fragments
+    async function retrieve() {
+      const document_id = document.getElementById('docSelect').value;
+      const question    = document.getElementById('questionInput').value;
+      const top_k       = document.getElementById('topkInput').value;
+      const url = new URL(`${BASE}/retrieve`);
+      url.searchParams.set('document_id', document_id);
+      url.searchParams.set('question', question);
+      url.searchParams.set('top_k', top_k);
+
+      const res = await fetch(url);
+      const js  = await res.json();
+      document.getElementById('retrieveResult').innerHTML =
+        `<pre>${JSON.stringify(js,null,2)}</pre>`;
+    }
+
+    document.getElementById('uploadBtn').onclick   = uploadFromData;
+    document.getElementById('retrieveBtn').onclick = retrieve;
+
+    window.addEventListener('load', loadFiles);
+  </script>
+</body>
+</html>

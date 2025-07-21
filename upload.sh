@@ -15,11 +15,9 @@ echo "Raw response: $RESP"
 DOC_ID=$(echo "$RESP" | sed -E 's/.*"document_id":"([^"]+)".*/\1/')
 echo "✅ document_id: $DOC_ID"
 
-# 2. Paksa refresh
-echo "🔄 Memaksa Elasticsearch refresh..."
-curl -s -X POST http://localhost:9200/rag_docs/_refresh
+#curl -s -X POST http://localhost:9200/rag_docs/_refresh
 
-# 3. Hitung chunk via _count
+# 2. Hitung chunk
 echo "🔍 Menghitung jumlah chunk..."
 ES_COUNT=$(curl -s -XGET 'http://localhost:9200/rag_docs/_count' \
   -H 'Content-Type: application/json' \
