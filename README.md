@@ -91,6 +91,12 @@ pip install -r requirements.txt
 uvicorn server:app --host 0.0.0.0 --port 8081 --reload
 ```
 
+### Using Image
+```bash
+# 1. Load the image.
+docker load -i ragprabu-backend.tar
+docker load -i elasticsearch-8.6.2.tar
+```
 ---
 
 ## Usage
