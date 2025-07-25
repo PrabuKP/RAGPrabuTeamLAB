@@ -91,11 +91,35 @@ pip install -r requirements.txt
 uvicorn server:app --host 0.0.0.0 --port 8081 --reload
 ```
 
-### Using Image
+### Using Image (If Your Are Using Windows Operating System, Use this step)
 ```bash
-# 1. Load the image.
+# 1. Download and Load the image.
 docker load -i ragprabu-backend.tar
 docker load -i elasticsearch-8.6.2.tar
+
+# Example
+docker load -i "C:\Users\prabu\Documents\2025\elasticsearch-8.6.2.tar"
+```
+
+```bash
+# 2. Run Your Image Using this command
+# For Elasticsearch
+docker run -d --name es `
+  -p 9200:9200 `
+  -e "discovery.type=single-node" `
+  -e "xpack.security.enabled=false" `
+  docker.elastic.co/elasticsearch/elasticsearch:8.6.2
+
+
+# For RAG
+docker network create ragnet
+docker network connect ragnet es
+
+docker run -d --name ragprabu-api `
+  --network ragnet `
+  -p 8081:8081 `
+  -e ES_HOST="http://es:9200" `
+  ragprabu-backend:latest
 ```
 ---
 
@@ -107,44 +131,109 @@ curl http://localhost:8081/health
 # → {"status":"ok"}
 ```
 
-### Upload via Shell Script
+### Upload and Retrieve via Shell Script
 ```bash
+#1. Upload Your Document
 chmod +x upload.sh
-./upload.sh Data/sample_long.txt
+./upload.sh Data/sample.txt
+
+#1. Retrieve
+./retrieve.sh “Document ID” “Number of K” "Question"
+
+#Example
+./retrieve.sh 22a2fdfe-b960-4dab-80a9-4a8e17c3aa95 3 "RAG Definition?"
 ```
 
-### Upload via Web UI
+### Upload and Retrieve via Web UI
 1. Open your browser to `http://localhost:8081/`.
 2. Select a file from the dropdown (files in `Data/`), click **Upload**.
+3. Select document id, enter the number of k and the question you want to ask.
 
-### Retrieve Chunks
+### RUpload and Retrieve via Python Script
 ```bash
-chmod +x retrieve.sh
-./retrieve.sh <DOCUMENT_ID> <TOP_K> "<QUESTION>"
-# example:
-./retrieve.sh 123e4567-e89b-12d3-a456-426614174000 5 "what is RAG?"
-```
-Or directly with curl:
-```bash
-curl "http://localhost:8081/retrieve?document_id=123e4567-e89b-12d3-a456-426614174000&question=what%20is%20RAG%3F&top_k=5"
+#Use this command
+python3 client.py DirectoryFolder FileName TotalK "Question"
+
+#Example
+python3 client.py Data pdf-sample.pdf 3 "RAG Definition?"
 ```
 
 ### Python Client Example (`client.py`)
 ```python
-from client import health, upload, retrieve
+#!/usr/bin/env python3
+import os
+import sys
+import requests
+import json
 
-# 1. Health check
-print(health())
+BASE_URL = "http://localhost:8081"
 
-# 2. Upload
-res = upload("Data/sample_long.txt")
-doc_id = res["document_id"]
-print("Document ID:", doc_id)
+def health() -> dict:
+    """
+    Check service health status.
+    GET /health
+    """
+    resp = requests.get(f"{BASE_URL}/health")
+    resp.raise_for_status()
+    return resp.json()
 
-# 3. Retrieve top‑3
-out = retrieve(doc_id, "what is RAG?", top_k=3)
-for frag in out["fragments"]:
-    print(f"Score: {frag['score']:.3f} – {frag['chunk'][:80]}…")
+def upload(file_path: str) -> dict:
+    """
+    Upload a document and return document_id and chunk_count.
+    POST /upload
+    """
+    if not os.path.isfile(file_path):
+        print(f"Error: file not found: {file_path}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(file_path, "rb") as f:
+        files = {"file": (os.path.basename(file_path), f)}
+        resp = requests.post(f"{BASE_URL}/upload", files=files)
+    resp.raise_for_status()
+    return resp.json()
+
+def retrieve(document_id: str, question: str, top_k: int = 5) -> dict:
+    """
+    Retrieve top-k fragments for a given question and document_id.
+    GET /retrieve?document_id=…&question=…&top_k=…
+    """
+    params = {
+        "document_id": document_id,
+        "question": question,
+        "top_k": top_k
+    }
+    resp = requests.get(f"{BASE_URL}/retrieve", params=params)
+    resp.raise_for_status()
+    return resp.json()
+
+def main():
+    if len(sys.argv) != 5:
+        print("Usage: python3 client.py <folder> <filename> <top_k> <question>")
+        print('Example: python3 client.py Data sample.txt 3 "What is RAG?"')
+        sys.exit(1)
+
+    folder = sys.argv[1]
+    filename = sys.argv[2]
+    top_k = int(sys.argv[3])
+    question = sys.argv[4]
+    file_path = os.path.join(folder, filename)
+
+    print("=== Health Check ===")
+    print(json.dumps(health(), indent=2))
+
+    print(f"\n=== Uploading: {file_path} ===")
+    up = upload(file_path)
+    doc_id = up["document_id"]
+    chunk_count = up.get("chunk_count", "?")
+    print(json.dumps(up, indent=2))
+
+    print(f"\n=== Retrieving top {top_k} results for: '{question}' ===")
+    ret = retrieve(doc_id, question, top_k=top_k)
+    print(json.dumps(ret, indent=2))  # ✅ Print full JSON like retrieve.sh
+
+if __name__ == "__main__":
+    main()
+
 ```
 
 ---
@@ -166,6 +255,6 @@ for frag in out["fragments"]:
 ---
 
 ## License
-MIT © 2025
+Prabu Kresna Putra | PRSDI - BRIN © 2025
 
-<sub>Generated on July 21, 2025</sub>
+<sub>Generated on July, 2025</sub>
