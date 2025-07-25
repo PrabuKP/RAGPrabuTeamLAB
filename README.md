@@ -149,7 +149,7 @@ chmod +x upload.sh
 2. Select a file from the dropdown (files in `Data/`), click **Upload**.
 3. Select document id, enter the number of k and the question you want to ask.
 
-### RUpload and Retrieve via Python Script
+### Upload and Retrieve via Python Script
 ```bash
 #Use this command
 python3 client.py DirectoryFolder FileName TotalK "Question"
