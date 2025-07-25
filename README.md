@@ -93,16 +93,20 @@ uvicorn server:app --host 0.0.0.0 --port 8081 --reload
 
 ### Using Image (If Your Are Using Windows Operating System, Use this step)
 ```bash
-# 1. Download and Load the image.
+# 1. Download From Google Drive and Load the image.
 docker load -i ragprabu-backend.tar
 docker load -i elasticsearch-8.6.2.tar
 
 # Example
 docker load -i "C:\Users\prabu\Documents\2025\elasticsearch-8.6.2.tar"
+
+#2. Or Pull from dockerhub using
+docker pull prabukp/ragprabu-backend:latest
 ```
 
+
 ```bash
-# 2. Run Your Image Using this command
+# 2. After you load the image, Run Your Image Using this command
 # For Elasticsearch
 docker run -d --name es `
   -p 9200:9200 `
@@ -120,6 +124,7 @@ docker run -d --name ragprabu-api `
   -p 8081:8081 `
   -e ES_HOST="http://es:9200" `
   ragprabu-backend:latest
+
 ```
 ---
 
