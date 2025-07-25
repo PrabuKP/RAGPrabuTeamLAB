@@ -2,12 +2,13 @@
 import os
 import sys
 import requests
+import json
 
 BASE_URL = "http://localhost:8081"
 
 def health() -> dict:
     """
-    Cek status service.
+    Check service health status.
     GET /health
     """
     resp = requests.get(f"{BASE_URL}/health")
@@ -16,7 +17,7 @@ def health() -> dict:
 
 def upload(file_path: str) -> dict:
     """
-    Upload dokumen dan dapatkan document_id & chunk_count.
+    Upload a document and return document_id and chunk_count.
     POST /upload
     """
     if not os.path.isfile(file_path):
@@ -31,7 +32,7 @@ def upload(file_path: str) -> dict:
 
 def retrieve(document_id: str, question: str, top_k: int = 5) -> dict:
     """
-    Ambil top-k fragmen untuk sebuah pertanyaan pada document_id.
+    Retrieve top-k fragments for a given question and document_id.
     GET /retrieve?document_id=…&question=…&top_k=…
     """
     params = {
@@ -44,31 +45,29 @@ def retrieve(document_id: str, question: str, top_k: int = 5) -> dict:
     return resp.json()
 
 def main():
-    print("=== Health Check ===")
-    print(health())
+    if len(sys.argv) != 5:
+        print("Usage: python3 client.py <folder> <filename> <top_k> <question>")
+        print('Example: python3 client.py Data sample.txt 3 "What is RAG?"')
+        sys.exit(1)
 
-    # Contoh upload
-    sample = "sample.txt"
-    print(f"\n=== Upload '{sample}' ===")
-    up = upload(sample)
+    folder = sys.argv[1]
+    filename = sys.argv[2]
+    top_k = int(sys.argv[3])
+    question = sys.argv[4]
+    file_path = os.path.join(folder, filename)
+
+    print("=== Health Check ===")
+    print(json.dumps(health(), indent=2))
+
+    print(f"\n=== Uploading: {file_path} ===")
+    up = upload(file_path)
     doc_id = up["document_id"]
     chunk_count = up.get("chunk_count", "?")
-    print(f"document_id = {doc_id}")
-    print(f"chunk_count  = {chunk_count}")
+    print(json.dumps(up, indent=2))
 
-    # Contoh retrieve
-    question = "apa itu RAG?"
-    k = 3
-    print(f"\n=== Retrieve top {k} for question: {question!r} ===")
-    ret = retrieve(doc_id, question, top_k=k)
-    for i, frag in enumerate(ret.get("fragments", []), 1):
-        # jika server juga mengembalikan skor, tampilkan skor
-        score = frag.get("score")
-        chunk = frag.get("chunk")
-        if score is not None:
-            print(f"{i}. [score={score:.3f}] {chunk[:80]}{'…' if len(chunk)>80 else ''}")
-        else:
-            print(f"{i}. {chunk[:80]}{'…' if len(chunk)>80 else ''}")
+    print(f"\n=== Retrieving top {top_k} results for: '{question}' ===")
+    ret = retrieve(doc_id, question, top_k=top_k)
+    print(json.dumps(ret, indent=2))  # ✅ Print full JSON like retrieve.sh
 
 if __name__ == "__main__":
     main()
